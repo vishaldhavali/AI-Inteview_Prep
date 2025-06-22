@@ -51,20 +51,30 @@ export default function OTPVerification() {
         user.user_metadata?.display_name ||
         user.user_metadata?.full_name ||
         name;
-      const userEmail = user.email || user.user_metadata?.email || email;
+
+      // Ensure we always have an email, even for phone-based auth
+      const userEmail =
+        user.email ||
+        user.user_metadata?.email ||
+        email ||
+        `${user.phone || user.user_metadata?.phone}@phone.local`;
+
       const userPhone = user.phone || user.user_metadata?.phone || phone;
 
       const { error } = await supabase.from("users").insert({
         id: user.id,
         name: userName,
         phone: userPhone || "",
+        email: userEmail,
       });
 
       if (error && error.code !== "23505") {
         console.error("Error creating user profile:", error);
+        throw error;
       }
     } catch (error) {
       console.error("Error in createUserProfile:", error);
+      throw error;
     }
   };
 
@@ -112,15 +122,24 @@ export default function OTPVerification() {
 
       // Successful verification
       if (result.data.user) {
-        await createUserProfile(result.data.user);
+        try {
+          await createUserProfile(result.data.user);
 
-        toast({
-          title: "Success! 🎉",
-          description: `Welcome ${name}! Your ${verificationType} has been verified successfully.`,
-        });
+          toast({
+            title: "Success! 🎉",
+            description: `Welcome ${name}! Your ${verificationType} has been verified successfully.`,
+          });
 
-        // Redirect directly to dashboard since user is now authenticated
-        router.push("/dashboard");
+          // Redirect directly to dashboard since user is now authenticated
+          router.push("/dashboard");
+        } catch (profileError: any) {
+          console.error("Profile creation error:", profileError);
+          toast({
+            title: "Profile Creation Failed",
+            description: "Failed to create your profile. Please try again.",
+            variant: "destructive",
+          });
+        }
       }
     } catch (error: any) {
       console.error("OTP verification error:", error);

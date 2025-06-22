@@ -1,22 +1,27 @@
--- First add the email column without constraints
-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS email TEXT;
+-- Check if email column exists
+DO $$ 
+BEGIN
+    -- Check if email column doesn't exist
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+        AND table_name = 'users' 
+        AND column_name = 'email'
+    ) THEN
+        -- Add email column if it doesn't exist
+        ALTER TABLE public.users
+        ADD COLUMN email TEXT NOT NULL DEFAULT 'placeholder@email.com';
 
--- Update existing users with email from auth.users
-UPDATE public.users
-SET email = COALESCE(
-  (
-    SELECT email 
-    FROM auth.users 
-    WHERE auth.users.id = public.users.id
-  ),
-  CONCAT(id, '@temp.local')  -- Fallback email if auth.users email is null
-);
+        -- Remove the default after adding the column
+        ALTER TABLE public.users
+        ALTER COLUMN email DROP DEFAULT;
 
--- Now we can safely add the NOT NULL constraint
-ALTER TABLE public.users ALTER COLUMN email SET NOT NULL;
-
--- Add unique constraint to email
-ALTER TABLE public.users ADD CONSTRAINT users_email_key UNIQUE (email);
+        -- Add a unique constraint to email
+        ALTER TABLE public.users
+        ADD CONSTRAINT users_email_key UNIQUE (email);
+    END IF;
+END $$;
 
 -- Update RLS policies
 DROP POLICY IF EXISTS "Users can insert own profile" ON public.users;
@@ -71,4 +76,4 @@ ADD COLUMN IF NOT EXISTS strengths TEXT[];
 
 -- Add summary column
 ALTER TABLE resumes
-ADD COLUMN IF NOT EXISTS summary TEXT; 
+ADD COLUMN IF NOT EXISTS summary TEXT;

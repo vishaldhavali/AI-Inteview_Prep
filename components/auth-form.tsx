@@ -189,8 +189,14 @@ export default function AuthForm() {
         user.user_metadata?.display_name ||
         user.user_metadata?.full_name ||
         formData.name;
+
+      // Ensure we always have an email, even for phone-based auth
       const userEmail =
-        user.email || user.user_metadata?.email || formData.email;
+        user.email ||
+        user.user_metadata?.email ||
+        formData.email ||
+        `${user.phone || user.user_metadata?.phone}@phone.local`;
+
       const userPhone =
         user.phone || user.user_metadata?.phone || formData.phone;
 
@@ -198,13 +204,16 @@ export default function AuthForm() {
         id: user.id,
         name: userName,
         phone: userPhone,
+        email: userEmail, // Add email field
       });
 
       if (error && error.code !== "23505") {
         console.error("Error creating user profile:", error);
+        throw error;
       }
     } catch (error) {
       console.error("Error in createUserProfile:", error);
+      throw error;
     }
   };
 

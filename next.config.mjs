@@ -7,8 +7,14 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    unoptimized: true,
+    domains: ["lh3.googleusercontent.com", "avatars.githubusercontent.com"],
+    unoptimized: false,
   },
-}
+  // Optimizing for Vercel deployment
+  swcMinify: true,
+  reactStrictMode: true,
+  poweredByHeader: false,
+  compress: true,
+};
 
-export default nextConfig
+export default nextConfig;

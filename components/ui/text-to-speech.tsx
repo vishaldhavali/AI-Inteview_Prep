@@ -13,14 +13,24 @@ import {
 interface TextToSpeechProps {
   text: string;
   className?: string;
+  onStateChange?: (speaking: boolean) => void;
 }
 
-export function TextToSpeech({ text, className = "" }: TextToSpeechProps) {
+export function TextToSpeech({
+  text,
+  className = "",
+  onStateChange,
+}: TextToSpeechProps) {
   const [speaking, setSpeaking] = useState(false);
   const [paused, setPaused] = useState(false);
   const [utterance, setUtterance] = useState<SpeechSynthesisUtterance | null>(
     null
   );
+
+  // Notify parent component of speaking state changes
+  useEffect(() => {
+    onStateChange?.(speaking);
+  }, [speaking, onStateChange]);
 
   // Cleanup function when component unmounts or text changes
   useEffect(() => {

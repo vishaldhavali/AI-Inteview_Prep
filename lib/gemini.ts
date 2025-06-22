@@ -1,9 +1,24 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Check if API key exists
-const apiKey = process.env.GEMINI_API_KEY;
+// In Next.js, we need to use NEXT_PUBLIC_ prefix for client-side environment variables
+const apiKey =
+  process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+
+console.log("Environment check:", {
+  hasApiKey: !!apiKey,
+  keyLength: apiKey?.length,
+  isDevelopment: process.env.NODE_ENV === "development",
+  isServer: typeof window === "undefined",
+});
+
 if (!apiKey) {
-  console.error("GEMINI_API_KEY environment variable is not set");
+  console.error(
+    "⚠️ Gemini API key not found. Please check your environment variables:"
+  );
+  console.error("1. For server-side: GEMINI_API_KEY in .env.local");
+  console.error("2. For client-side: NEXT_PUBLIC_GEMINI_API_KEY in .env.local");
+} else {
+  console.log("✅ Gemini API key is configured");
 }
 
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;

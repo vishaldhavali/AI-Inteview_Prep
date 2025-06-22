@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { generateQuestion, validateAnswer } from "@/lib/gemini";
@@ -26,6 +26,7 @@ import {
   Brain,
   Target,
   CheckCircle,
+  Volume2,
 } from "lucide-react";
 import {
   Tooltip,
@@ -55,6 +56,7 @@ export default function InterviewPage() {
   const [showIdealAnswer, setShowIdealAnswer] = useState(false);
   const [idealAnswer, setIdealAnswer] = useState("");
   const [generatingIdeal, setGeneratingIdeal] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   const interviewType = params.type as
     | "technical"
@@ -299,8 +301,35 @@ export default function InterviewPage() {
   };
 
   const handleNextQuestion = async () => {
-    setQuestionCount((prev) => prev + 1);
-    await generateNewQuestion(resumeData, user);
+    try {
+      // Reset all states
+      setUserAnswer("");
+      setShowResults(false);
+      setValidationResult(null);
+      setAnswerGiven(false);
+      setShowIdealAnswer(false);
+      setIdealAnswer("");
+      setQuestionCount((prev) => prev + 1);
+
+      // Reset voice recorder state
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+      setIsRecording(false);
+
+      // Reset the transcript
+      voiceRecorderRef.current?.resetTranscript();
+
+      // Generate new question
+      await generateNewQuestion(resumeData, user);
+    } catch (error) {
+      console.error("Error generating next question:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate next question. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSpeakIdealAnswer = () => {
@@ -309,6 +338,69 @@ export default function InterviewPage() {
     } else if (idealAnswer) {
       speak(idealAnswer);
     }
+  };
+
+  const handleSpeakText = (text: string) => {
+    if (!window.speechSynthesis) {
+      console.error("Speech synthesis not supported");
+      return;
+    }
+
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel();
+    setIsSpeaking(false);
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.9;
+    utterance.pitch = 1;
+
+    utterance.onstart = () => {
+      setIsSpeaking(true);
+    };
+
+    utterance.onend = () => {
+      setIsSpeaking(false);
+    };
+
+    utterance.onerror = () => {
+      setIsSpeaking(false);
+      console.error("Speech synthesis error");
+    };
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // Add cleanup for speech synthesis
+  useEffect(() => {
+    return () => {
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+        setIsSpeaking(false);
+      }
+    };
+  }, []);
+
+  // Replace the existing button with TextToSpeech component
+  const renderSpeakButton = (text: string) => (
+    <TextToSpeech
+      text={text}
+      onStateChange={(speaking) => setIsSpeaking(speaking)}
+      className="hover:bg-blue-100 transition-all duration-200"
+    />
+  );
+
+  // Add a reference to the voice recorder component
+  const voiceRecorderRef = useRef<{ resetTranscript: () => void } | null>(null);
+
+  // Update the voice recorder component props
+  const handleRecordingStart = () => {
+    setIsRecording(true);
+    // Clear previous answer when starting new recording
+    setUserAnswer("");
+  };
+
+  const handleRecordingStop = () => {
+    setIsRecording(false);
   };
 
   if (loading) {
@@ -371,11 +463,12 @@ export default function InterviewPage() {
 
       <div className="space-y-4">
         <VoiceRecorder
+          ref={voiceRecorderRef}
           onTranscriptChange={handleTranscriptChange}
           onRecordingComplete={handleRecordingComplete}
           isRecording={isRecording}
-          onStartRecording={() => setIsRecording(true)}
-          onStopRecording={() => setIsRecording(false)}
+          onStartRecording={handleRecordingStart}
+          onStopRecording={handleRecordingStop}
         />
 
         {userAnswer && (
@@ -514,15 +607,11 @@ export default function InterviewPage() {
                     Sample Ideal Answer
                   </CardTitle>
                 </div>
-                <Button
-                  onClick={handleSpeakIdealAnswer}
-                  variant="outline"
-                  size="sm"
-                  disabled={speaking}
+                <TextToSpeech
+                  text={validationResult.idealAnswer}
+                  onStateChange={(speaking) => setIsSpeaking(speaking)}
                   className="hover:bg-blue-100 transition-all duration-200"
-                >
-                  <Volume2 className="h-4 w-4" />
-                </Button>
+                />
               </div>
             </CardHeader>
             <CardContent>

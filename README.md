@@ -1,91 +1,111 @@
 # AI Interview Prep
 
-Welcome to **AI Interview Prep**, a modern web application designed to help users practice for job interviews by leveraging the power of Generative AI. This tool analyzes your resume, extracts key information, and generates personalized interview questions tailored to your specific skills and experience.
+An AI-powered interview preparation platform built with Next.js and deployed on Vercel.
 
-![AI Interview Prep Screenshot](public/placeholder.jpg) 
+## Environment Variables Setup
 
-## ✨ Features
+### Required Environment Variables
 
-- **📄 Resume Analysis:** Upload your PDF resume for in-depth analysis. The AI extracts your skills, work experience, projects, and education.
-- **🤖 AI-Powered Question Generation:** Receive custom-generated interview questions based on your resume in categories like Technical, Behavioral, and Management.
-- **🎙️ Voice-to-Text Practice:** Practice your answers using your voice. The application transcribes your speech to text in real-time.
-- **✅ Answer Validation:** Get instant feedback on your answers. The AI provides a score, an ideal answer, and constructive feedback to help you improve.
-- **🔒 Secure & Private:** Your data is securely handled, and API keys are managed through environment variables, ensuring your information stays private.
-- **🚀 Vercel Ready:** The application is fully configured for easy deployment on Vercel with automatic builds and deployments from your Git repository.
+```env
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 
-## 🛠️ Tech Stack
+# Google Gemini AI Configuration
+GEMINI_API_KEY=your_gemini_api_key
+```
 
-- **Framework:** [Next.js](https://nextjs.org/) (React)
-- **Styling:** [Tailwind CSS](https://tailwindcss.com/) with [shadcn/ui](https://ui.shadcn.com/) components
-- **AI/ML:** [Google Gemini API](https://ai.google.dev/) for resume analysis and question generation
-- **Backend & Database:** [Supabase](https://supabase.io/) for user authentication, database, and file storage
-- **State Management:** React Hooks & Context API
-- **Deployment:** [Vercel](https://vercel.com/)
+### How to Set Up Environment Variables
 
-## 🚀 Getting Started
+1. **For Local Development:**
 
-Follow these instructions to get a copy of the project up and running on your local machine for development and testing purposes.
+   - Create a `.env.local` file in the root directory
+   - Copy the above variables and fill in your values
+   - Never commit this file to version control
+
+2. **For Vercel Deployment:**
+   - Go to your Vercel project dashboard
+   - Navigate to Settings > Environment Variables
+   - Add each variable with its corresponding value
+   - Make sure to add variables to all environments (Production, Preview, Development)
+
+### Getting the Values
+
+1. **Supabase Variables:**
+
+   - Log in to your [Supabase Dashboard](https://app.supabase.com)
+   - Select your project
+   - Go to Project Settings > API
+   - Copy the `Project URL` for `NEXT_PUBLIC_SUPABASE_URL`
+   - Copy the `anon public` key for `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+2. **Gemini AI API Key:**
+   - Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
+   - Create or select a project
+   - Generate an API key
+   - Copy the key for `GEMINI_API_KEY`
+
+### Security Notes
+
+- Never expose your API keys in your code
+- Don't commit `.env` files to version control
+- Use appropriate environment variables for different deployment environments
+- Rotate API keys periodically for security
+
+## Deployment Guide
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/en/) (v18 or later)
-- [npm](https://www.npmjs.com/) or [pnpm](https://pnpm.io/)
-- A [Supabase](https://supabase.io/) account and project
-- A [Google AI Studio](https://ai.google.dev/) API key (for Gemini)
+- A Vercel account
+- A Google Cloud account (for Gemini AI API)
+- A Supabase account
 
-### Installation
+### Deployment Steps
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/vishaldhavali/AI-Inteview_Prep.git
-    cd AI-Inteview_Prep
-    ```
+1. Fork or clone this repository
+2. Import the project to Vercel:
+   - Go to [Vercel Dashboard](https://vercel.com)
+   - Click "New Project"
+   - Import your repository
+   - Configure environment variables
+   - Deploy
 
-2.  **Install dependencies:**
-    ```bash
-    npm install
-    # or
-    pnpm install
-    ```
+### Important Notes
 
-3.  **Set up your environment variables:**
-    Create a new file named `.env.local` in the root of your project and add the following, replacing the placeholder values with your actual credentials.
+- Make sure to set up proper CORS settings in your Supabase project
+- The Gemini API key should be kept secret and only set in Vercel environment variables
+- The project uses Next.js 14 with App Router
+- All API routes are serverless functions compatible with Vercel's infrastructure
 
-    ```env
-    NEXT_PUBLIC_SUPABASE_URL="YOUR_SUPABASE_URL"
-    NEXT_PUBLIC_SUPABASE_ANON_KEY="YOUR_SUPABASE_ANON_KEY"
-    GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
-    ```
+### Local Development
 
-    - You can get your Supabase URL and anon key from your Supabase project's **Settings > API** page.
-    - You can get your Gemini API key from the [Google AI Studio](https://aistudio.google.com/app/apikey).
+```bash
+# Install dependencies
+npm install
 
-4. **Set up the Supabase Database**
-   In your Supabase project's SQL Editor, run the SQL scripts located in the `/scripts` directory in numerical order to create the necessary tables.
-   - `01-create-tables.sql`
-   - `08-add-email-column.sql`
+# Create .env.local file with required environment variables
+# See .env.example for required variables
 
+# Run development server
+npm run dev
+```
 
-5.  **Run the development server:**
-    ```bash
-    npm run dev
-    # or
-    pnpm dev
-    ```
+### Features
 
-    Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- AI-powered resume analysis
+- Technical interview preparation
+- Behavioral interview questions
+- Real-time answer validation
+- Voice recording capabilities
+- PDF processing
+- User authentication via Supabase
 
-## 📦 Deployment
+### Tech Stack
 
-This project is optimized for deployment on [Vercel](https://vercel.com/).
-
-1.  **Push your code** to your GitHub repository.
-2.  **Import the repository** into Vercel.
-3.  **Configure the Environment Variables** in the Vercel project settings, just as you did in your `.env.local` file.
-4.  **Deploy!** Vercel will automatically handle the build process.
-
-Every time you push a new commit to your `main` branch, Vercel will automatically redeploy your application with the latest changes.
-
----
-
-Feel free to contribute to this project by submitting a pull request or opening an issue. 
+- Next.js 14
+- React 18
+- Supabase
+- Google's Gemini AI
+- TailwindCSS
+- Radix UI Components
+- TypeScript

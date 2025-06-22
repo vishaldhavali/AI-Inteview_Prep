@@ -52,14 +52,15 @@ export default function OTPVerification() {
         user.user_metadata?.full_name ||
         name;
 
-      // Ensure we always have an email, even for phone-based auth
-      const userEmail =
-        user.email ||
-        user.user_metadata?.email ||
-        email ||
-        `${user.phone || user.user_metadata?.phone}@phone.local`;
+      // Get email and phone from user metadata or URL params
+      const userEmail = user.email || user.user_metadata?.email || email;
 
       const userPhone = user.phone || user.user_metadata?.phone || phone;
+
+      // Ensure we have either email or phone
+      if (!userEmail && !userPhone) {
+        throw new Error("Either email or phone is required");
+      }
 
       const { error } = await supabase.from("users").insert({
         id: user.id,
@@ -127,7 +128,7 @@ export default function OTPVerification() {
 
           toast({
             title: "Success! 🎉",
-            description: `Welcome ${name}! Your ${verificationType} has been verified successfully.`,
+            description: `Welcome ${name}! Your account has been verified successfully.`,
           });
 
           // Redirect directly to dashboard since user is now authenticated

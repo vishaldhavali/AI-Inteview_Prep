@@ -60,78 +60,79 @@ export default function AuthForm() {
         return;
       }
 
-      if (verificationType === "phone" && !formData.phone) {
+      // Always require both email and phone for better account linking
+      if (!formData.phone) {
         toast({
           title: "Phone Required",
-          description: "Please enter your phone number for phone verification.",
+          description: "Please enter your phone number.",
           variant: "destructive",
         });
         return;
       }
 
-      if (verificationType === "email" && !formData.email) {
+      if (!formData.email) {
         toast({
           title: "Email Required",
-          description: "Please enter your email for email verification.",
+          description: "Please enter your email address.",
           variant: "destructive",
         });
         return;
       }
+
+      // Validate phone number length
+      if (formData.phone.length !== 10) {
+        toast({
+          title: "Invalid Phone Number",
+          description: "Please enter a valid 10-digit phone number.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Format phone number with country code
+      const fullPhoneNumber = `${countryCode}${formData.phone}`;
 
       let signUpData;
       let redirectPath;
 
+      // Always include both email and phone in the metadata
+      const userData = {
+        name: formData.name,
+        display_name: formData.name,
+        email: formData.email,
+        phone: fullPhoneNumber,
+        verification_type: verificationType,
+        full_name: formData.name,
+      };
+
       if (verificationType === "phone") {
-        // Validate phone number length
-        if (formData.phone.length !== 10) {
-          toast({
-            title: "Invalid Phone Number",
-            description: "Please enter a valid 10-digit phone number.",
-            variant: "destructive",
-          });
-          setLoading(false);
-          return;
-        }
-
-        // Format phone number with country code
-        const fullPhoneNumber = `${countryCode}${formData.phone}`;
-
-        // Phone-based signup - ALWAYS include email and name in user_metadata
         signUpData = await supabase.auth.signUp({
           phone: fullPhoneNumber,
+          email: formData.email, // Include email for phone-based signup
           password: formData.password,
           options: {
-            data: {
-              name: formData.name,
-              display_name: formData.name,
-              email: formData.email || `${fullPhoneNumber}@phone.local`,
-              phone: fullPhoneNumber,
-              verification_type: "phone",
-              full_name: formData.name,
-            },
+            data: userData,
           },
         });
         redirectPath = `/verify-otp?phone=${encodeURIComponent(
           fullPhoneNumber
+        )}&email=${encodeURIComponent(
+          formData.email
         )}&name=${encodeURIComponent(formData.name)}`;
       } else {
-        // Email-based signup - ALWAYS include name and phone in user_metadata
         signUpData = await supabase.auth.signUp({
           email: formData.email,
+          phone: fullPhoneNumber, // Include phone for email-based signup
           password: formData.password,
           options: {
-            data: {
-              name: formData.name,
-              display_name: formData.name,
-              email: formData.email,
-              phone: formData.phone || null,
-              verification_type: "email",
-              full_name: formData.name,
-            },
+            data: userData,
           },
         });
         redirectPath = `/verify-otp?email=${encodeURIComponent(
           formData.email
+        )}&phone=${encodeURIComponent(
+          fullPhoneNumber
         )}&name=${encodeURIComponent(formData.name)}`;
       }
 
@@ -225,7 +226,7 @@ export default function AuthForm() {
       let signInData;
 
       if (verificationType === "email") {
-        // Email sign in
+        // Try email sign in
         signInData = await supabase.auth.signInWithPassword({
           email: formData.email,
           password: formData.password,
@@ -245,10 +246,28 @@ export default function AuthForm() {
         // Format phone number with country code for sign in
         const fullPhoneNumber = `${countryCode}${formData.phone}`;
 
+        // Try phone sign in
         signInData = await supabase.auth.signInWithPassword({
           phone: fullPhoneNumber,
           password: formData.password,
         });
+
+        // If phone sign in fails, try to find the user by phone and get their email
+        if (signInData.error) {
+          const { data: userData } = await supabase
+            .from("users")
+            .select("email")
+            .eq("phone", fullPhoneNumber)
+            .single();
+
+          if (userData?.email) {
+            // Try signing in with the associated email
+            signInData = await supabase.auth.signInWithPassword({
+              email: userData.email,
+              password: formData.password,
+            });
+          }
+        }
       }
 
       const { data, error } = signInData;
@@ -258,13 +277,7 @@ export default function AuthForm() {
           toast({
             title: "Sign In Failed",
             description:
-              "Invalid credentials. Please check your email/phone and password.",
-            variant: "destructive",
-          });
-        } else if (error.message.includes("not verified")) {
-          toast({
-            title: "Phone Not Verified",
-            description: "Please verify your phone number before signing in.",
+              "Invalid credentials. Please check your details and try again.",
             variant: "destructive",
           });
         } else {
@@ -277,38 +290,20 @@ export default function AuthForm() {
         return;
       }
 
-      if (data.user) {
-        // Create or update user profile
-        const { error: profileError } = await supabase
-          .from("users")
-          .upsert({
-            id: data.user.id,
-            name: data.user.user_metadata?.name || formData.name,
-            email: data.user.email || formData.email,
-            phone: data.user.phone || formData.phone,
-            updated_at: new Date().toISOString(),
-          })
-          .select()
-          .single();
-
-        if (profileError) {
-          console.error("Error updating user profile:", profileError);
-        }
-
-        const userName =
-          data.user.user_metadata?.name || formData.name || "User";
-
+      if (data?.user) {
         toast({
-          title: "Welcome back! 👋",
-          description: `Hello ${userName}! Successfully signed in.`,
+          title: "Welcome Back! 🎉",
+          description: `Successfully signed in as ${
+            data.user.user_metadata?.name || "User"
+          }`,
         });
         router.push("/dashboard");
       }
     } catch (error: any) {
       console.error("Sign in error:", error);
       toast({
-        title: "Error",
-        description: "An unexpected error occurred. Please try again.",
+        title: "Sign In Error",
+        description: error.message || "Failed to sign in",
         variant: "destructive",
       });
     } finally {

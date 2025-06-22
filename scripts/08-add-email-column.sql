@@ -76,4 +76,4 @@ ADD COLUMN IF NOT EXISTS strengths TEXT[];
 
 -- Add summary column
 ALTER TABLE resumes
-ADD COLUMN IF NOT EXISTS summary TEXT;
+ADD COLUMN IF NOT EXISTS summary TEXT; 

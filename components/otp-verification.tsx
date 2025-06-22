@@ -22,6 +22,8 @@ export default function OTPVerification() {
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
+  const [resendDisabled, setResendDisabled] = useState(true);
+  const [countdown, setCountdown] = useState(30);
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -44,33 +46,34 @@ export default function OTPVerification() {
     }
   }, [email, phone, router, toast]);
 
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (countdown > 0 && resendDisabled) {
+      timer = setInterval(() => {
+        setCountdown((prev) => prev - 1);
+      }, 1000);
+    } else {
+      setResendDisabled(false);
+    }
+    return () => clearInterval(timer);
+  }, [countdown, resendDisabled]);
+
   const createUserProfile = async (user: any) => {
     try {
-      const userName =
-        user.user_metadata?.name ||
-        user.user_metadata?.display_name ||
-        user.user_metadata?.full_name ||
-        name;
+      const { error } = await supabase.from("users").upsert(
+        {
+          id: user.id,
+          name: name || user.user_metadata?.name,
+          phone: phone || user.user_metadata?.phone || "",
+          email: email || user.user_metadata?.email || "",
+          created_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "id",
+        }
+      );
 
-      // Get email and phone from user metadata or URL params
-      const userEmail = user.email || user.user_metadata?.email || email;
-
-      const userPhone = user.phone || user.user_metadata?.phone || phone;
-
-      // Ensure we have either email or phone
-      if (!userEmail && !userPhone) {
-        throw new Error("Either email or phone is required");
-      }
-
-      const { error } = await supabase.from("users").insert({
-        id: user.id,
-        name: userName,
-        phone: userPhone || "",
-        email: userEmail,
-      });
-
-      if (error && error.code !== "23505") {
-        console.error("Error creating user profile:", error);
+      if (error) {
         throw error;
       }
     } catch (error) {
@@ -84,70 +87,41 @@ export default function OTPVerification() {
     setLoading(true);
 
     try {
-      let result;
-
-      if (isPhoneVerification) {
-        result = await supabase.auth.verifyOtp({
-          phone: phone!,
-          token: otp,
-          type: "sms",
-        });
-      } else {
-        result = await supabase.auth.verifyOtp({
-          email: email!,
-          token: otp,
-          type: "signup",
-        });
+      if (!phone) {
+        throw new Error("Phone number is required for verification");
       }
 
-      if (result.error) {
-        if (result.error.message.includes("Token has expired")) {
-          toast({
-            title: "Code Expired",
-            description:
-              "The verification code has expired. Please request a new one.",
-            variant: "destructive",
-          });
-        } else if (result.error.message.includes("Invalid token")) {
-          toast({
-            title: "Invalid Code",
-            description:
-              "The verification code is incorrect. Please check and try again.",
-            variant: "destructive",
-          });
-        } else {
-          throw result.error;
-        }
+      const { data, error } = await supabase.auth.verifyOtp({
+        phone,
+        token: otp,
+        type: "sms",
+      });
+
+      if (error) {
+        toast({
+          title: "Verification Failed",
+          description: "Invalid OTP. Please try again.",
+          variant: "destructive",
+        });
+        setLoading(false);
         return;
       }
 
-      // Successful verification
-      if (result.data.user) {
-        try {
-          await createUserProfile(result.data.user);
+      if (data.user) {
+        // Create user profile after successful OTP verification
+        await createUserProfile(data.user);
 
-          toast({
-            title: "Success! 🎉",
-            description: `Welcome ${name}! Your account has been verified successfully.`,
-          });
-
-          // Redirect directly to dashboard since user is now authenticated
-          router.push("/dashboard");
-        } catch (profileError: any) {
-          console.error("Profile creation error:", profileError);
-          toast({
-            title: "Profile Creation Failed",
-            description: "Failed to create your profile. Please try again.",
-            variant: "destructive",
-          });
-        }
+        toast({
+          title: "Success! 🎉",
+          description: "Phone number verified successfully. Welcome!",
+        });
+        router.push("/dashboard");
       }
     } catch (error: any) {
       console.error("OTP verification error:", error);
       toast({
-        title: "Verification Failed",
-        description:
-          error.message || "Failed to verify code. Please try again.",
+        title: "Verification Error",
+        description: error.message || "Failed to verify OTP",
         variant: "destructive",
       });
     } finally {
@@ -158,30 +132,30 @@ export default function OTPVerification() {
   const handleResendOTP = async () => {
     setResending(true);
     try {
-      let result;
-
-      if (isPhoneVerification) {
-        result = await supabase.auth.resend({
-          type: "sms",
-          phone: phone!,
-        });
-      } else {
-        result = await supabase.auth.resend({
-          type: "signup",
-          email: email!,
-        });
+      if (!phone) {
+        throw new Error("Phone number is required");
       }
 
-      if (result.error) throw result.error;
+      const { error } = await supabase.auth.signUp({
+        phone,
+        password: "temporary", // This won't be used as we're only resending OTP
+      });
 
+      if (error) {
+        throw error;
+      }
+
+      setResendDisabled(true);
+      setCountdown(30);
       toast({
-        title: "Code Sent! 📱",
-        description: `New verification code sent to your ${verificationType}.`,
+        title: "OTP Resent",
+        description: "A new verification code has been sent to your phone.",
       });
     } catch (error: any) {
+      console.error("Error resending OTP:", error);
       toast({
         title: "Error",
-        description: error.message || "Failed to resend verification code.",
+        description: error.message || "Failed to resend OTP",
         variant: "destructive",
       });
     } finally {
@@ -277,12 +251,16 @@ export default function OTPVerification() {
             </Button>
 
             <div className="text-center space-y-2">
-              <p className="text-sm text-gray-600">Didn't receive the code?</p>
+              <p className="text-sm text-gray-600">
+                {resendDisabled
+                  ? `Resend code in ${countdown}s`
+                  : "Didn't receive the code?"}
+              </p>
               <Button
                 type="button"
                 variant="ghost"
                 onClick={handleResendOTP}
-                disabled={resending}
+                disabled={resendDisabled}
                 className="text-sm hover:bg-blue-50 transition-all duration-200"
               >
                 {resending ? (

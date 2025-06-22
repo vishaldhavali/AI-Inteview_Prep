@@ -38,10 +38,12 @@ import {
 } from "@/components/ui/collapsible";
 import { ResumeUploaderProps, ResumeData } from "@/types/app";
 import { logger, handleError, ErrorCategory } from "@/lib/utils/error-handler";
+import { useSession } from "@/components/providers/session-provider";
 
 export default function ResumeUploader({
   onUploadComplete,
 }: ResumeUploaderProps) {
+  const { session, loading: sessionLoading } = useSession();
   const [uploading, setUploading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -127,6 +129,15 @@ export default function ResumeUploader({
   });
 
   const handleUpload = async () => {
+    if (!session?.user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to upload your resume.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!uploadedFile) {
       const error = handleError(
         new Error("No file selected"),
@@ -142,14 +153,8 @@ export default function ResumeUploader({
     setAnalysisError("");
 
     try {
-      // Get current user
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-      if (userError || !user) {
-        throw new Error("User not authenticated");
-      }
+      // Use session user directly instead of fetching again
+      const user = session.user;
 
       // Upload file to Supabase Storage
       const fileName = `${user.id}/${Date.now()}-${uploadedFile.name}`;

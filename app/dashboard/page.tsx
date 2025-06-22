@@ -5,20 +5,13 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import ResumeUploader from "@/components/resume-uploader";
 import InterviewCards from "@/components/interview-cards";
-import { Button } from "@/components/ui/button";
+import ProfileDropdown from "@/components/profile-dropdown";
 import { useToast } from "@/hooks/use-toast";
 import { useResume } from "@/hooks/use-resume";
-import {
-  LogOut,
-  User,
-  Loader2,
-  Upload,
-  FileText,
-  Trash2,
-  Sparkles,
-  Brain,
-  Target,
-} from "lucide-react";
+import { Loader2, Upload, FileText, Trash2 } from "lucide-react";
+import { User as SupabaseUser } from "@supabase/supabase-js";
+import { logger, handleError, ErrorCategory } from "@/lib/utils/error-handler";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -27,8 +20,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { User as SupabaseUser } from "@supabase/supabase-js";
-import { logger, handleError, ErrorCategory } from "@/lib/utils/error-handler";
 
 interface UserProfile {
   id: string;
@@ -37,6 +28,7 @@ interface UserProfile {
   phone?: string;
   created_at: string;
   updated_at: string;
+  last_sign_in?: string;
 }
 
 export default function DashboardPage() {
@@ -58,6 +50,12 @@ export default function DashboardPage() {
   useEffect(() => {
     checkUser();
   }, []);
+
+  useEffect(() => {
+    if (!loading && !isUploaded) {
+      setShowUploader(true);
+    }
+  }, [loading, isUploaded]);
 
   const checkUser = async () => {
     try {
@@ -162,6 +160,11 @@ export default function DashboardPage() {
     }
   };
 
+  const handleResumeUploadAndDone = (data: any) => {
+    handleResumeUpload(data);
+    setShowUploader(false);
+  };
+
   // Get user display name from multiple sources
   const getUserDisplayName = () => {
     return (
@@ -184,6 +187,14 @@ export default function DashboardPage() {
     );
   };
 
+  // Check if this is user's first login
+  const isFirstTimeLogin = () => {
+    if (!userProfile?.last_sign_in) return true;
+    const lastSignIn = new Date(userProfile.last_sign_in);
+    const createdAt = new Date(userProfile.created_at);
+    return lastSignIn.getTime() - createdAt.getTime() < 1000 * 60; // Within 1 minute
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
@@ -198,43 +209,39 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-6">
-      {/* User Profile Section */}
-      <div className="max-w-6xl mx-auto mb-8">
-        <Card className="bg-white/80 backdrop-blur-sm border-2 border-indigo-100">
-          <CardHeader>
-            <div className="flex justify-between items-center">
-              <div className="flex items-center space-x-4">
-                <div className="h-12 w-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white">
-                  <User className="h-6 w-6" />
-                </div>
-                <div>
-                  <CardTitle className="text-2xl">
-                    Welcome, {getUserDisplayName()}
-                  </CardTitle>
-                  <CardDescription>
-                    {getUserEmail() || getUserPhone()}
-                  </CardDescription>
-                </div>
-              </div>
-              <Button
-                variant="outline"
-                className="border-red-200 text-red-600 hover:bg-red-50"
-                onClick={handleSignOut}
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                Sign Out
-              </Button>
-            </div>
-          </CardHeader>
-        </Card>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+      {/* Top Navigation Bar */}
+      <div className="fixed top-0 right-0 p-4 z-50">
+        <ProfileDropdown
+          name={getUserDisplayName()}
+          email={getUserEmail()}
+          phone={getUserPhone()}
+          onSignOut={handleSignOut}
+          isFirstTimeLogin={isFirstTimeLogin()}
+        />
       </div>
 
-      {/* Resume Section */}
-      <div className="max-w-6xl mx-auto mb-8">
-        {showUploader ? (
-          <ResumeUploader onUploadComplete={handleResumeUpload} />
-        ) : (
+      {/* Welcome Message */}
+      <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500">
+        <div className="max-w-6xl mx-auto px-6 py-4">
+          <h1 className="text-2xl font-bold text-white">
+            {isFirstTimeLogin()
+              ? "Welcome to AI Interview Prep"
+              : "Welcome back"}
+            , {getUserDisplayName()}! 👋
+          </h1>
+          <p className="text-indigo-100 mt-1">
+            {isFirstTimeLogin()
+              ? "Get started by uploading your resume for personalized interview practice"
+              : "Continue your interview preparation journey"}
+          </p>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="px-6 py-8">
+        <div className="max-w-6xl mx-auto space-y-8">
+          {/* Resume Section */}
           <Card className="bg-white/80 backdrop-blur-sm border-2 border-indigo-100">
             <CardHeader>
               <div className="flex justify-between items-center">
@@ -283,29 +290,39 @@ export default function DashboardPage() {
                     variant="secondary"
                     className="bg-blue-50 text-blue-700"
                   >
-                    <Target className="h-3 w-3 mr-1" />
-                    {resumeData.skills?.length || 0} Skills
+                    {resumeData.skills?.length || 0} Skills Found
                   </Badge>
                   <Badge
                     variant="secondary"
                     className="bg-purple-50 text-purple-700"
                   >
-                    <Sparkles className="h-3 w-3 mr-1" />
                     {resumeData.projects?.length || 0} Projects
                   </Badge>
+                  {resumeData.careerLevel && (
+                    <Badge
+                      variant="secondary"
+                      className="bg-green-50 text-green-700"
+                    >
+                      {resumeData.careerLevel} Level
+                    </Badge>
+                  )}
                 </div>
               </CardContent>
             )}
           </Card>
-        )}
-      </div>
 
-      {/* Interview Cards Section */}
-      <InterviewCards
-        resumeUploaded={!!resumeData}
-        resumeData={resumeData}
-        isAnalyzing={isAnalyzing}
-      />
+          {/* Interview Cards or Resume Uploader */}
+          {showUploader && (
+            <ResumeUploader onUploadComplete={handleResumeUploadAndDone} />
+          )}
+
+          <InterviewCards
+            resumeData={resumeData}
+            resumeUploaded={isUploaded}
+            isAnalyzing={isAnalyzing}
+          />
+        </div>
+      </div>
     </div>
   );
 }

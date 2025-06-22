@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS public.resumes (
   experience JSONB DEFAULT '{}'::jsonb,
   projects JSONB DEFAULT '[]'::jsonb,
   keywords JSONB DEFAULT '[]'::jsonb,
+  "careerLevel" TEXT,
   uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

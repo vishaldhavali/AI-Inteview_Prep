@@ -42,6 +42,7 @@ import { useSession } from "@/components/providers/session-provider";
 
 export default function ResumeUploader({
   onUploadComplete,
+  onDone,
 }: ResumeUploaderProps) {
   const { session, loading: sessionLoading } = useSession();
   const [uploading, setUploading] = useState(false);
@@ -1101,6 +1102,15 @@ export default function ResumeUploader({
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {analysisResult && onDone && (
+          <div className="text-center mt-4">
+            <Button onClick={onDone}>
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Done
+            </Button>
+          </div>
         )}
 
         <div className="text-center text-sm text-gray-500 space-y-1">

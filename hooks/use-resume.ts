@@ -36,6 +36,77 @@ export function useResume(): UseResumeReturn {
           throw new Error("User not authenticated");
         }
 
+        // Check if user profile exists, if not create it
+        const { data: profile, error: profileError } = await supabase
+          .from("users")
+          .select("*")
+          .eq("id", user.id)
+          .single();
+
+        if (!profile) {
+          // First check if a user with this email already exists
+          const { data: existingUser, error: emailCheckError } = await supabase
+            .from("users")
+            .select("id")
+            .eq("email", user.email)
+            .single();
+
+          // If no user exists with this email, create new profile
+          if (!existingUser) {
+            const { error: createError } = await supabase.from("users").insert({
+              id: user.id,
+              name:
+                user.user_metadata?.name || user.email?.split("@")[0] || "User",
+              email: user.email,
+              phone: user.phone || user.user_metadata?.phone || "",
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              last_sign_in: new Date().toISOString(),
+            });
+
+            if (createError) {
+              logger.error("Error creating user profile:", createError);
+              throw createError;
+            }
+          } else {
+            // If user exists with this email but different ID, use a unique email
+            const uniqueEmail = `${user.email?.split("@")[0]}_${user.id}@${
+              user.email?.split("@")[1]
+            }`;
+
+            const { error: createError } = await supabase.from("users").insert({
+              id: user.id,
+              name:
+                user.user_metadata?.name || user.email?.split("@")[0] || "User",
+              email: uniqueEmail,
+              phone: user.phone || user.user_metadata?.phone || "",
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              last_sign_in: new Date().toISOString(),
+            });
+
+            if (createError) {
+              logger.error(
+                "Error creating user profile with unique email:",
+                createError
+              );
+              throw createError;
+            }
+          }
+
+          // Verify profile was created
+          const { data: verifyProfile, error: verifyError } = await supabase
+            .from("users")
+            .select("*")
+            .eq("id", user.id)
+            .single();
+
+          if (verifyError || !verifyProfile) {
+            logger.error("Error verifying user profile:", verifyError);
+            throw new Error("Failed to verify user profile creation");
+          }
+        }
+
         // Validate required fields
         if (!data.file_url) {
           throw new Error("File URL is required");

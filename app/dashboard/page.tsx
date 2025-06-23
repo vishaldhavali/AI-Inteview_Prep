@@ -57,6 +57,27 @@ export default function DashboardPage() {
     }
   }, [loading, isUploaded]);
 
+  // Fetch the latest resume for the current user
+  const fetchLatestResume = async (userId: string) => {
+    try {
+      const { data: resume, error: resumeError } = await supabase
+        .from("resumes")
+        .select("*")
+        .eq("user_id", userId)
+        .order("uploaded_at", { ascending: false })
+        .limit(1)
+        .single();
+      if (!resumeError && resume) {
+        handleResumeUpload(resume);
+      } else {
+        resetResumeState();
+      }
+    } catch (error) {
+      resetResumeState();
+    }
+  };
+
+  // Update checkUser to use fetchLatestResume
   const checkUser = async () => {
     try {
       const {
@@ -84,21 +105,8 @@ export default function DashboardPage() {
         setUserProfile(profile);
       }
 
-      // Check if user has uploaded resume
-      const { data: resume, error: resumeError } = await supabase
-        .from("resumes")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("uploaded_at", { ascending: false })
-        .limit(1)
-        .single();
-
-      if (!resumeError && resume) {
-        logger.info("Resume found:", { id: resume.id });
-        handleResumeUpload(resume);
-      } else {
-        logger.info("No resume found");
-      }
+      // Always fetch the latest resume
+      await fetchLatestResume(user.id);
     } catch (error) {
       const toastError = handleError(error, ErrorCategory.AUTH, "user check");
       toast(toastError);
@@ -125,31 +133,44 @@ export default function DashboardPage() {
     }
   };
 
+  // Update handleDeleteResume to delete all resumes for the user
   const handleDeleteResume = async () => {
-    if (!resumeData || !user) return;
+    if (!user) return;
 
     try {
-      // Delete from storage
-      const fileName = resumeData.file_url.split("/").pop();
-      if (fileName) {
-        await supabase.storage
-          .from("resumes")
-          .remove([`${user.id}/${fileName}`]);
+      // Fetch all resumes for the user
+      const { data: resumes, error: fetchError } = await supabase
+        .from("resumes")
+        .select("*")
+        .eq("user_id", user.id);
+
+      if (fetchError) throw fetchError;
+
+      // Delete all resume files from storage
+      if (resumes && resumes.length > 0) {
+        const fileNames = resumes
+          .map((resume: any) => resume.file_url.split("/").pop())
+          .filter(Boolean)
+          .map((fileName: string) => `${user.id}/${fileName}`);
+        if (fileNames.length > 0) {
+          await supabase.storage.from("resumes").remove(fileNames);
+        }
       }
 
-      // Delete from database
+      // Delete all resumes from database
       const { error } = await supabase
         .from("resumes")
         .delete()
-        .eq("id", resumeData.id);
+        .eq("user_id", user.id);
 
       if (error) throw error;
 
-      resetResumeState();
       toast({
         title: "Resume Deleted",
         description: "Your resume has been deleted successfully",
       });
+      // Always fetch the latest resume after delete
+      await fetchLatestResume(user.id);
     } catch (error) {
       const toastError = handleError(
         error,
@@ -160,9 +181,13 @@ export default function DashboardPage() {
     }
   };
 
-  const handleResumeUploadAndDone = (data: any) => {
-    handleResumeUpload(data);
+  // Update handleResumeUploadAndDone to refresh resume after upload
+  const handleResumeUploadAndDone = async (data: any) => {
+    await handleResumeUpload(data);
     setShowUploader(false);
+    if (user) {
+      await fetchLatestResume(user.id);
+    }
   };
 
   // Get user display name from multiple sources

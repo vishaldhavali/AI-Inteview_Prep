@@ -113,44 +113,31 @@ export default function AuthForm() {
       // Format phone number with country code
       const fullPhoneNumber = `${countryCode}${formData.phone}`;
 
-      // Show loading state
-      toast({
-        title: "Creating Account",
-        description: "Please wait while we set up your account...",
+      // Create the user with email as the primary credential, and phone in metadata
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email.trim(),
+        password: formData.password,
+        options: {
+          data: {
+            name: formData.name,
+            phone: fullPhoneNumber,
+          },
+        },
       });
 
-      // First, create the user with phone auth
-      const { data: phoneData, error: phoneError } = await supabase.auth.signUp(
-        {
-          phone: fullPhoneNumber,
-          password: formData.password,
-          options: {
-            data: {
-              name: formData.name,
-              email: formData.email.trim(),
-              phone: fullPhoneNumber,
-            },
-          },
-        }
-      );
-
-      if (phoneError) {
-        throw phoneError;
+      if (error) {
+        throw error;
       }
 
-      // Add a delay of 4 seconds before sending OTP
-      await new Promise((resolve) => setTimeout(resolve, 4000));
-
-      // Now initiate phone verification
-      const { error: verificationError } = await supabase.auth.signInWithOtp({
+      // Now send OTP to phone for verification
+      const { error: otpError } = await supabase.auth.signInWithOtp({
         phone: fullPhoneNumber,
       });
-
-      if (verificationError) {
-        throw verificationError;
+      if (otpError) {
+        throw otpError;
       }
 
-      // Redirect to OTP verification
+      // Redirect to OTP verification page
       const redirectPath = `/verify-otp?phone=${encodeURIComponent(
         fullPhoneNumber
       )}&name=${encodeURIComponent(formData.name)}&email=${encodeURIComponent(
@@ -163,35 +150,11 @@ export default function AuthForm() {
       });
       router.push(redirectPath);
     } catch (error: any) {
-      console.error("Sign up error:", error);
-      if (error.message.includes("security purposes")) {
-        // Handle rate limit error
-        toast({
-          title: "Please Wait",
-          description:
-            "Please wait a few seconds before requesting another code.",
-          variant: "destructive",
-        });
-      } else if (error.message.includes("phone number format")) {
-        toast({
-          title: "Invalid Phone Number",
-          description: "Please enter a valid phone number with country code.",
-          variant: "destructive",
-        });
-      } else if (error.message.includes("already registered")) {
-        toast({
-          title: "Account Exists",
-          description:
-            "An account with this phone number already exists. Please sign in instead.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Sign Up Error",
-          description: error.message || "Failed to create account",
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Sign Up Error",
+        description: error.message || "Failed to create account",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -222,29 +185,21 @@ export default function AuthForm() {
         const { data, error } = signInData;
 
         if (error) {
-          console.error("Sign in error:", error);
-          if (error.message.includes("Invalid login credentials")) {
-            toast({
-              title: "Sign In Failed",
-              description: "Invalid email or password.",
-              variant: "destructive",
-            });
-          } else {
-            toast({
-              title: "Sign In Error",
-              description: error.message,
-              variant: "destructive",
-            });
-          }
+          toast({
+            title: "Sign In Failed",
+            description: "Invalid email or password.",
+            variant: "destructive",
+          });
           setLoading(false);
           return;
         }
 
         if (data?.user) {
-          const userName = data.user.user_metadata?.name || "User";
           toast({
             title: "Welcome back! 👋",
-            description: `Hello ${userName}! Successfully signed in.`,
+            description: `Hello ${
+              data.user.user_metadata?.name || "User"
+            }! Successfully signed in.`,
           });
           router.push("/dashboard");
         }
@@ -273,95 +228,71 @@ export default function AuthForm() {
         // Format phone number with country code
         const fullPhoneNumber = `${countryCode}${formData.phone}`;
 
-        try {
-          // First try to find the user by phone using a single query
-          let userData = null; // Changed to let and initialized as null
+        // Look up the email associated with this phone number
+        let userData = null;
+        // Try with full phone number first
+        const { data: userDataFull, error: userError } = await supabase
+          .from("users")
+          .select("email")
+          .eq("phone", fullPhoneNumber)
+          .single();
 
-          // Try with full phone number first
-          const { data: userDataFull, error: userError } = await supabase
+        if (!userError && userDataFull) {
+          userData = userDataFull;
+        } else {
+          // If not found with full number, try without country code
+          const { data: userDataSimple, error: userError2 } = await supabase
             .from("users")
             .select("email")
-            .eq("phone", fullPhoneNumber)
+            .eq("phone", formData.phone)
             .single();
 
-          if (!userError && userDataFull) {
-            userData = userDataFull;
-          } else {
-            // If not found with full number, try without country code
-            const { data: userDataSimple, error: userError2 } = await supabase
-              .from("users")
-              .select("email")
-              .eq("phone", formData.phone)
-              .single();
-
-            if (!userError2 && userDataSimple) {
-              userData = userDataSimple;
-            }
+          if (!userError2 && userDataSimple) {
+            userData = userDataSimple;
           }
+        }
 
-          // Check if we found a user
-          if (!userData) {
-            toast({
-              title: "Sign In Failed",
-              description: "No account found with this phone number.",
-              variant: "destructive",
-            });
-            setLoading(false);
-            return;
-          }
-
-          // Sign in with the found email
-          const { data, error } = await supabase.auth.signInWithPassword({
-            email: userData.email,
-            password: formData.password,
-          });
-
-          if (error) {
-            toast({
-              title: "Sign In Failed",
-              description: "Invalid password.",
-              variant: "destructive",
-            });
-            setLoading(false);
-            return;
-          }
-
-          if (data?.user) {
-            // Update user profile with the latest phone number format
-            await supabase
-              .from("users")
-              .update({
-                phone: fullPhoneNumber,
-                last_sign_in: new Date().toISOString(),
-              })
-              .eq("id", data.user.id);
-
-            const userName =
-              data.user.user_metadata?.name ||
-              data.user.user_metadata?.full_name ||
-              "User";
-
-            toast({
-              title: "Welcome back! 👋",
-              description: `Hello ${userName}! Successfully signed in.`,
-            });
-            router.push("/dashboard");
-          }
-        } catch (error) {
-          console.error("Phone sign in error:", error);
+        if (!userData || !userData.email) {
           toast({
-            title: "Error",
-            description: "An unexpected error occurred. Please try again.",
+            title: "Sign In Failed",
+            description: "No account found with this phone number.",
             variant: "destructive",
           });
           setLoading(false);
+          return;
+        }
+
+        // Sign in with the found email and provided password
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: userData.email,
+          password: formData.password,
+        });
+
+        if (error) {
+          toast({
+            title: "Sign In Failed",
+            description: "Invalid phone or password.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+
+        if (data?.user) {
+          toast({
+            title: "Welcome back! 👋",
+            description: `Hello ${
+              data.user.user_metadata?.name || "User"
+            }! Successfully signed in.`,
+          });
+          router.push("/dashboard");
         }
       }
     } catch (error: any) {
-      console.error("Sign in error:", error);
       toast({
         title: "Error",
-        description: "An unexpected error occurred. Please try again.",
+        description:
+          error.message || "An unexpected error occurred. Please try again.",
         variant: "destructive",
       });
     } finally {

@@ -219,7 +219,7 @@ export default function DashboardPage() {
           onSignOut={handleSignOut}
           isFirstTimeLogin={isFirstTimeLogin()}
         />
-      </div>
+                </div>
 
       {/* Welcome Message */}
       <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500">
@@ -235,13 +235,13 @@ export default function DashboardPage() {
               ? "Get started by uploading your resume for personalized interview practice"
               : "Continue your interview preparation journey"}
           </p>
-        </div>
+            </div>
       </div>
 
       {/* Main Content */}
       <div className="px-6 py-8">
         <div className="max-w-6xl mx-auto space-y-8">
-          {/* Resume Section */}
+      {/* Resume Section */}
           <Card className="bg-white/80 backdrop-blur-sm border-2 border-indigo-100">
             <CardHeader>
               <div className="flex justify-between items-center">
@@ -314,13 +314,13 @@ export default function DashboardPage() {
           {/* Interview Cards or Resume Uploader */}
           {showUploader && (
             <ResumeUploader onUploadComplete={handleResumeUploadAndDone} />
-          )}
+        )}
 
-          <InterviewCards
-            resumeData={resumeData}
+      <InterviewCards
+        resumeData={resumeData}
             resumeUploaded={isUploaded}
-            isAnalyzing={isAnalyzing}
-          />
+        isAnalyzing={isAnalyzing}
+      />
         </div>
       </div>
     </div>

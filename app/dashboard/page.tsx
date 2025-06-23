@@ -8,7 +8,7 @@ import InterviewCards from "@/components/interview-cards";
 import ProfileDropdown from "@/components/profile-dropdown";
 import { useToast } from "@/hooks/use-toast";
 import { useResume } from "@/hooks/use-resume";
-import { Loader2, Upload, FileText, Trash2 } from "lucide-react";
+import { Loader2, Upload, FileText, Trash2, Sparkles } from "lucide-react";
 import { User as SupabaseUser } from "@supabase/supabase-js";
 import { logger, handleError, ErrorCategory } from "@/lib/utils/error-handler";
 import { Button } from "@/components/ui/button";
@@ -210,38 +210,81 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-      {/* Top Navigation Bar */}
-      <div className="fixed top-0 right-0 p-4 z-50">
-        <ProfileDropdown
-          name={getUserDisplayName()}
-          email={getUserEmail()}
-          phone={getUserPhone()}
-          onSignOut={handleSignOut}
-          isFirstTimeLogin={isFirstTimeLogin()}
-        />
-                </div>
+      {/* Header Bar */}
+      <header className="w-full bg-white shadow-sm flex items-center justify-between px-8 py-3 sticky top-0 z-50">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
+            <Sparkles className="h-6 w-6 text-white" />
+          </div>
+          <span className="text-2xl font-bold bg-gradient-to-r from-indigo-500 to-purple-500 bg-clip-text text-transparent select-none">
+            AI Interview Prep
+          </span>
+        </div>
+        <div className="flex items-center gap-4 bg-white/70 rounded-full px-4 py-2 shadow-sm">
+          <div className="flex flex-col items-end mr-2">
+            <span className="font-semibold text-gray-900">
+              {getUserDisplayName()}
+            </span>
+            <span className="text-xs text-gray-500">{getUserEmail()}</span>
+            <span className="text-xs text-gray-500">{getUserPhone()}</span>
+          </div>
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center text-white font-bold text-lg border-2 border-white shadow">
+            {getUserDisplayName()
+              .split(" ")
+              .map((n: string) => n[0])
+              .join("")
+              .toUpperCase()}
+          </div>
+          <button
+            onClick={handleSignOut}
+            className="ml-2 px-4 py-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-800 font-medium flex items-center gap-2 transition"
+          >
+            <span className="hidden md:inline">Sign Out</span>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
+              className="w-5 h-5"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m-6-3h12m0 0l-3-3m3 3l-3 3"
+              />
+            </svg>
+          </button>
+        </div>
+      </header>
 
-      {/* Welcome Message */}
-      <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500">
-        <div className="max-w-6xl mx-auto px-6 py-4">
-          <h1 className="text-2xl font-bold text-white">
-            {isFirstTimeLogin()
-              ? "Welcome to AI Interview Prep"
-              : "Welcome back"}
-            , {getUserDisplayName()}! 👋
-          </h1>
-          <p className="text-indigo-100 mt-1">
-            {isFirstTimeLogin()
-              ? "Get started by uploading your resume for personalized interview practice"
-              : "Continue your interview preparation journey"}
-          </p>
-            </div>
+      {/* Welcome Banner */}
+      <div className="flex justify-center w-full mt-8 mb-6">
+        <div className="flex items-center gap-3 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full px-8 py-3 shadow-lg">
+          <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
+            <Sparkles className="h-5 w-5 text-white" />
+          </div>
+          <span className="text-white font-semibold text-lg md:text-xl">
+            Welcome back, {getUserDisplayName()}!
+          </span>
+        </div>
+      </div>
+
+      {/* Main Heading and Subtitle */}
+      <div className="flex flex-col items-center mb-10">
+        <h1 className="text-3xl md:text-5xl font-extrabold text-gray-900 text-center mb-3">
+          Let's Get Started with Your Interview Preparation
+        </h1>
+        <p className="text-gray-500 text-lg text-center max-w-2xl">
+          Upload your resume to unlock personalized AI-powered interview
+          practice sessions tailored to your experience and skills.
+        </p>
       </div>
 
       {/* Main Content */}
       <div className="px-6 py-8">
         <div className="max-w-6xl mx-auto space-y-8">
-      {/* Resume Section */}
+          {/* Resume Section */}
           <Card className="bg-white/80 backdrop-blur-sm border-2 border-indigo-100">
             <CardHeader>
               <div className="flex justify-between items-center">
@@ -314,13 +357,13 @@ export default function DashboardPage() {
           {/* Interview Cards or Resume Uploader */}
           {showUploader && (
             <ResumeUploader onUploadComplete={handleResumeUploadAndDone} />
-        )}
+          )}
 
-      <InterviewCards
-        resumeData={resumeData}
+          <InterviewCards
+            resumeData={resumeData}
             resumeUploaded={isUploaded}
-        isAnalyzing={isAnalyzing}
-      />
+            isAnalyzing={isAnalyzing}
+          />
         </div>
       </div>
     </div>

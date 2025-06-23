@@ -80,8 +80,7 @@ export interface AuthFormData {
 
 // Component Props Types
 export interface ResumeUploaderProps {
-  onUploadComplete: (data: ResumeData) => void;
-  onDone?: () => void;
+  onUploadComplete: (resumeData: ResumeData) => void;
 }
 
 export interface InterviewCardsProps {

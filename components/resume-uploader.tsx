@@ -42,7 +42,6 @@ import { useSession } from "@/components/providers/session-provider";
 
 export default function ResumeUploader({
   onUploadComplete,
-  onDone,
 }: ResumeUploaderProps) {
   const { session, loading: sessionLoading } = useSession();
   const [uploading, setUploading] = useState(false);
@@ -299,7 +298,8 @@ export default function ResumeUploader({
       }
 
       setAnalysisMethod(method);
-      await onUploadComplete(analysis);
+      setAnalyzing(false);
+      onUploadComplete(analysis);
     } catch (error: any) {
       const toastError = handleError(
         error,
@@ -310,8 +310,6 @@ export default function ResumeUploader({
       setUploading(false);
       setAnalyzing(false);
       setAnalysisError(error.message);
-    } finally {
-      setAnalyzing(false);
     }
   };
 
@@ -1104,9 +1102,12 @@ export default function ResumeUploader({
           </Card>
         )}
 
-        {analysisResult && onDone && (
+        {analysisResult && (
           <div className="text-center mt-4">
-            <Button onClick={onDone}>
+            <Button
+              onClick={() => onUploadComplete(analysisResult)}
+              className="bg-green-500 hover:bg-green-600 text-white"
+            >
               <CheckCircle className="h-4 w-4 mr-2" />
               Done
             </Button>

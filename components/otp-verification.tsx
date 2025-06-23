@@ -115,7 +115,7 @@ export default function OTPVerification() {
           title: "Success! 🎉",
           description: "Phone number verified successfully. Welcome!",
         });
-        router.push("/dashboard");
+        router.push("/");
       }
     } catch (error: any) {
       console.error("OTP verification error:", error);
